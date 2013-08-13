@@ -69,32 +69,24 @@ let signed_call ?(headers=Header.init ()) ?(body=[]) ?chunked ~rng ~creds meth u
   let body = CB.body_of_string body_string in
   let headers = List.fold_left (fun a (k,v) -> Header.add a k v) headers
       ([ "User-Agent", "athanor/0.1";
-        "Authorization", authorization_string
-      ] @ if meth = `POST then [
-      "Content-Length", string_of_int (String.length body_string);
-      "Content-Type", "application/x-www-form-urlencoded"
-    ] else []) in
+         "Authorization", authorization_string
+       ] @ if meth = `POST then [
+          "Content-Length", string_of_int (String.length body_string);
+          "Content-Type", "application/x-www-form-urlencoded"
+        ] else []) in
   C.call ~headers ?body ?chunked meth uri
 
 let wants j =
-	let open Yj.Util in
-	j
-	|> member "lang"
-	|> to_string
-	|> function
-	| "es" -> true
-	| "fr" -> true
-	| _ -> false
+  let open Yj.Util in
+  j
+  |> member "lang"
+  |> to_string
+  |> function
+  | "es" -> true
+  | "fr" -> true
+  | _ -> false
 
-(*
-	let rtc = Yj.Util.(
-		j
-		|> member "retweet_count"
-		|> to_int
-		)
-	in
-	rtc >= 1
-*)
+
 let mods j = j
 
 let _ =
