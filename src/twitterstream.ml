@@ -101,9 +101,10 @@ let _ =
       >>= function
       | None -> Printf.printf "No response, exiting... :(\n%!"; exit 0
       | Some (resp, body) ->
+        let rn = Re_str.regexp "\r\n" in
         Lwt.catch Lwt_stream.(fun () ->
             CB.stream_of_body body
-            |> map_list Re_str.(split (regexp "\n"))
+            |> map_list (Re_str.split rn)
             |> map (fun s -> Yj.from_string s)
             |> filter wants
             |> map mods
