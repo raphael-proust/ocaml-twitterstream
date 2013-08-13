@@ -1,7 +1,9 @@
 open Cohttp
 module C  = Cohttp_lwt_unix.Client
 module CB = Cohttp_lwt_body
+module Yj = Yojson.Basic
 
+let ( |> ) x f = f x
 let (>>=) = Lwt.bind
 
 type creds = {
@@ -74,10 +76,30 @@ let signed_call ?(headers=Header.init ()) ?(body=[]) ?chunked ~rng ~creds meth u
     ] else []) in
   C.call ~headers ?body ?chunked meth uri
 
+let wants j =
+	let open Yj.Util in
+	j
+	|> member "lang"
+	|> to_string
+	|> function
+	| "es" -> true
+	| "fr" -> true
+	| _ -> false
+
+(*
+	let rtc = Yj.Util.(
+		j
+		|> member "retweet_count"
+		|> to_int
+		)
+	in
+	rtc >= 1
+*)
+let mods j = j
+
 let _ =
   let open Cryptokit in
   let ic = open_in ".twitterstream" in
-  let oc = open_out "twitter.stdout" in
   let creds = creds_of_json (Yojson.Basic.from_channel ic) in
   let rng = Random.pseudo_rng (Random.string Random.secure_rng 20) in
   let cmdargs = List.tl (Array.to_list Sys.argv) in
@@ -87,15 +109,15 @@ let _ =
       >>= function
       | None -> Printf.printf "No response, exiting... :(\n%!"; exit 0
       | Some (resp, body) ->
-        let body_stream = CB.stream_of_body body in
-        let rec print_body_forever stream =
-          Lwt.catch
-            (fun () -> Lwt_stream.next stream >>= fun frag ->
-              Printf.printf "%s" frag;
-              Printf.fprintf oc "%s" frag;
-              print_body_forever stream)
-            (fun _ -> Lwt.return ())
-        in
-        print_body_forever body_stream
+        Lwt.catch Lwt_stream.(fun () ->
+            CB.stream_of_body body
+            |> map_list Re_str.(split (regexp "\n"))
+            |> map (fun s -> Yj.from_string s)
+            |> filter wants
+            |> map mods
+            |> map (fun j -> Yj.to_string ~std:true j)
+            |> iter_s Lwt_io.printl
+          )
+          (fun _ -> Lwt.return ())
     end
 
